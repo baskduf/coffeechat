@@ -1,184 +1,490 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import './App.css'
 import { api, getApiErrorMessage } from './api'
-import type { MatchSuggestion, OAuthProvider, Report } from './types'
+import type { Appointment, MatchProposal, MatchSuggestion, OAuthProvider, Report, User } from './types'
+import { JourneyNav, type JourneyStep } from './components/JourneyNav'
+import { Badge, Button, Card, InputField, Notice } from './components/ui'
+import './App.css'
 
 const providers: OAuthProvider[] = ['google', 'kakao', 'apple']
 
+const steps: JourneyStep[] = [
+  { key: 'onboarding', label: 'Onboarding & Auth', desc: 'Login with mock OAuth and verify your phone to start.' },
+  { key: 'profile', label: 'Profile Setup', desc: 'Set nickname, bio, region, interests, and weekly availability.' },
+  { key: 'matching', label: 'Suggestions & Proposals', desc: 'Find best matches and send/handle proposals.' },
+  { key: 'appointment', label: 'Appointment Lifecycle', desc: 'Check-in, review partner, or report issues / no-show.' },
+  { key: 'admin', label: 'Admin Moderation', desc: 'Review open incident reports and resolve them with sanctions.' },
+]
+
+type Status = { type: 'idle' | 'success' | 'error'; message: string }
+
 function App() {
+  const [activeStep, setActiveStep] = useState<string>(steps[0].key)
+  const [completed, setCompleted] = useState<Set<string>>(new Set())
+
   const [userId, setUserId] = useState('')
-  const [adminKey, setAdminKey] = useState('')
-  const [output, setOutput] = useState('Ready')
-  const [appointmentId, setAppointmentId] = useState('')
-  const [proposalId, setProposalId] = useState('')
-  const [targetUserId, setTargetUserId] = useState('')
-  const [checkinCode, setCheckinCode] = useState('1234')
+  const [adminKey, setAdminKey] = useState('dev-admin-key')
+
+  const [me, setMe] = useState<(User & { interests: { name: string }[]; availability: { id: string; weekday: number; startTime: string; endTime: string; area: string }[] }) | null>(null)
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([])
+  const [proposals, setProposals] = useState<MatchProposal[]>([])
+  const [appointment, setAppointment] = useState<Appointment | null>(null)
   const [reports, setReports] = useState<Report[]>([])
 
-  const run = async (label: string, fn: () => Promise<unknown>) => {
+  const [proposalId, setProposalId] = useState('')
+  const [appointmentId, setAppointmentId] = useState('')
+  const [targetUserId, setTargetUserId] = useState('')
+
+  const [status, setStatus] = useState<Status>({ type: 'idle', message: 'Welcome to CoffeeChat. Start from onboarding.' })
+  const [loading, setLoading] = useState(false)
+
+  const [interestInput, setInterestInput] = useState('coffee, startup, design')
+  const [checkinCode, setCheckinCode] = useState('')
+
+  const nextStep = useMemo(() => {
+    const index = steps.findIndex((step) => step.key === activeStep)
+    return index < steps.length - 1 ? steps[index + 1].key : steps[index].key
+  }, [activeStep])
+
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setLoading(true)
+    setStatus({ type: 'idle', message: `${label}...` })
     try {
-      const result = await fn()
-      setOutput(`${label}\n${JSON.stringify(result, null, 2)}`)
+      await fn()
+      setStatus({ type: 'success', message: `${label} completed.` })
     } catch (error) {
-      setOutput(`Error: ${getApiErrorMessage(error)}`)
+      setStatus({ type: 'error', message: getApiErrorMessage(error) })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const onAuth = async (e: FormEvent<HTMLFormElement>) => {
+  const markDone = (stepKey: string) => {
+    setCompleted((prev) => new Set(prev).add(stepKey))
+  }
+
+  const onAuthSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    await run('Auth success', async () => {
-      const res = await api.auth(fd.get('provider') as OAuthProvider, String(fd.get('email')), String(fd.get('nickname')))
-      setUserId(res.user.id)
-      return res
+    const provider = fd.get('provider') as OAuthProvider
+    const email = String(fd.get('email'))
+    const nickname = String(fd.get('nickname'))
+
+    await run('Authenticating user', async () => {
+      const authRes = await api.auth(provider, email, nickname)
+      setUserId(authRes.user.id)
+      const verifyRes = await api.verifyPhone(authRes.user.id)
+      setMe({ ...verifyRes.user, interests: [], availability: [] })
+      markDone('onboarding')
+      setActiveStep('profile')
+    })
+  }
+
+  const loadMe = async () => {
+    await run('Loading profile', async () => {
+      const res = await api.me(userId)
+      setMe(res)
+      if (res.interests.length > 0 && res.availability.length > 0) {
+        markDone('profile')
+      }
+    })
+  }
+
+  const saveProfile = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+
+    await run('Saving profile and interests', async () => {
+      await api.updateProfile({
+        userId,
+        nickname: String(fd.get('nickname')),
+        bio: String(fd.get('bio')),
+        region: String(fd.get('region')),
+      })
+
+      const interests = interestInput
+        .split(',')
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean)
+      if (interests.length > 0) {
+        await api.updateInterests({ userId, interests })
+      }
+
+      const updated = await api.me(userId)
+      setMe(updated)
+      markDone('profile')
+      setActiveStep('matching')
+    })
+  }
+
+  const addSlot = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    await run('Adding availability slot', async () => {
+      await api.addAvailability({
+        userId,
+        weekday: Number(fd.get('weekday')),
+        startTime: String(fd.get('startTime')),
+        endTime: String(fd.get('endTime')),
+        area: String(fd.get('area')),
+      })
+      const updated = await api.me(userId)
+      setMe(updated)
+    })
+  }
+
+  const loadSuggestions = async () => {
+    await run('Loading match suggestions', async () => {
+      const res = await api.suggestions(userId)
+      setSuggestions(res)
+      markDone('matching')
+    })
+  }
+
+  const createProposal = async (partnerId: string) => {
+    await run('Creating proposal', async () => {
+      const proposal = await api.createProposal({ proposerId: userId, partnerId, message: 'Coffee this week?' })
+      setProposalId(proposal.id)
+      const myProposals = await api.proposals(userId)
+      setProposals(myProposals)
+    })
+  }
+
+  const refreshProposals = async () => {
+    await run('Refreshing proposals', async () => {
+      const res = await api.proposals(userId)
+      setProposals(res)
+    })
+  }
+
+  const acceptProposal = async (id: string) => {
+    await run('Accepting proposal', async () => {
+      const res = await api.acceptProposal(id, {
+        accepterId: userId,
+        place: 'Cafe Layered, Gangnam',
+        startsAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      })
+      setAppointment(res.appointment)
+      setAppointmentId(res.appointment.id)
+      setCheckinCode(res.appointment.checkinCode)
+      markDone('matching')
+      setActiveStep('appointment')
+      await refreshProposals()
+    })
+  }
+
+  const rejectProposal = async (id: string) => {
+    await run('Rejecting proposal', async () => {
+      await api.rejectProposal(id, userId)
+      await refreshProposals()
+    })
+  }
+
+  const loadAppointment = async () => {
+    await run('Loading appointment', async () => {
+      const appt = await api.appointment(appointmentId)
+      setAppointment(appt)
+      setCheckinCode(appt.checkinCode)
+    })
+  }
+
+  const submitCheckin = async () => {
+    await run('Submitting check-in', async () => {
+      await api.checkin(appointmentId, { userId, code: checkinCode })
+      const appt = await api.appointment(appointmentId)
+      setAppointment(appt)
+      if (appt.status === 'COMPLETED') {
+        markDone('appointment')
+      }
+    })
+  }
+
+  const submitReview = async () => {
+    await run('Submitting review', async () => {
+      await api.review(appointmentId, {
+        reviewerId: userId,
+        revieweeId: targetUserId,
+        comment: 'Great conversation and good energy.',
+        scoreDelta: 2,
+      })
+      markDone('appointment')
+    })
+  }
+
+  const submitNoShow = async () => {
+    await run('Reporting no-show', async () => {
+      await api.noShow(appointmentId, { reporterId: userId, targetUserId, reason: 'did not arrive in 20 minutes' })
+      const appt = await api.appointment(appointmentId)
+      setAppointment(appt)
+      markDone('appointment')
+    })
+  }
+
+  const submitReport = async () => {
+    await run('Submitting incident report', async () => {
+      await api.report(appointmentId, {
+        reporterId: userId,
+        targetUserId,
+        reason: 'Inappropriate communication during the meeting',
+        evidence: 'Conversation summary logged by user',
+      })
+    })
+  }
+
+  const loadOpenReports = async () => {
+    await run('Loading open reports', async () => {
+      const res = await api.adminReports(adminKey)
+      setReports(res)
+      markDone('admin')
+    })
+  }
+
+  const resolveReport = async (reportId: string) => {
+    await run('Resolving report', async () => {
+      await api.adminResolveReport(adminKey, reportId, { sanction: 'WARNING', trustDelta: -5 })
+      const updated = await api.adminReports(adminKey)
+      setReports(updated)
+      markDone('admin')
     })
   }
 
   return (
-    <div className="layout">
-      <header>
-        <h1>CoffeeChat Frontend MVP</h1>
-        <p>Backend: {import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'}</p>
-        <div className="inputs">
-          <input placeholder="Current User ID" value={userId} onChange={(e) => setUserId(e.target.value)} />
-          <input placeholder="Admin API Key" value={adminKey} onChange={(e) => setAdminKey(e.target.value)} />
-          <input placeholder="Proposal ID" value={proposalId} onChange={(e) => setProposalId(e.target.value)} />
-          <input placeholder="Appointment ID" value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} />
-          <input placeholder="Target User ID" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
-          <input placeholder="Check-in code" value={checkinCode} onChange={(e) => setCheckinCode(e.target.value)} />
+    <div className="app-shell">
+      <header className="topbar">
+        <div>
+          <h1>CoffeeChat MVP</h1>
+          <p>Production-like end-to-end flow from onboarding to admin moderation.</p>
         </div>
+        <Badge tone="neutral">API: {import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'}</Badge>
       </header>
 
-      <section className="panel">
-        <h2>1) Mock Auth</h2>
-        <form onSubmit={onAuth} className="grid2">
-          <select name="provider" defaultValue="google">
-            {providers.map((provider) => (
-              <option key={provider}>{provider}</option>
+      <JourneyNav steps={steps} active={activeStep} completed={completed} onSelect={setActiveStep} />
+
+      <div className="global-controls">
+        <InputField label="Current user ID">
+          <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="user UUID from auth" />
+        </InputField>
+        <InputField label="Admin API key">
+          <input value={adminKey} onChange={(e) => setAdminKey(e.target.value)} placeholder="x-admin-api-key" />
+        </InputField>
+        <Button variant="secondary" onClick={() => setActiveStep(nextStep)}>
+          Next Step
+        </Button>
+      </div>
+
+      <Notice type={status.type} message={status.message} />
+
+      {activeStep === 'onboarding' ? (
+        <Card title="Onboarding & Auth" subtitle="Mock OAuth login + automatic phone verification">
+          <form className="grid" onSubmit={onAuthSubmit}>
+            <InputField label="Provider">
+              <select name="provider" defaultValue="google">
+                {providers.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+            </InputField>
+            <InputField label="Email">
+              <input name="email" placeholder="you@example.com" required />
+            </InputField>
+            <InputField label="Nickname">
+              <input name="nickname" placeholder="CoffeeFriend" required />
+            </InputField>
+            <Button type="submit" disabled={loading}>
+              Start Journey
+            </Button>
+          </form>
+        </Card>
+      ) : null}
+
+      {activeStep === 'profile' ? (
+        <div className="stack">
+          <Card title="Profile & Interests" subtitle="Add basic identity and what you like to talk about.">
+            <form className="grid" onSubmit={saveProfile}>
+              <InputField label="Nickname">
+                <input name="nickname" defaultValue={me?.nickname ?? 'Coffee Friend'} required />
+              </InputField>
+              <InputField label="Bio">
+                <input name="bio" defaultValue={me?.bio ?? ''} placeholder="Product designer who loves espresso" />
+              </InputField>
+              <InputField label="Region">
+                <input name="region" defaultValue={me?.region ?? ''} placeholder="seoul" />
+              </InputField>
+              <InputField label="Interests (comma separated)">
+                <input value={interestInput} onChange={(e) => setInterestInput(e.target.value)} />
+              </InputField>
+              <div className="row">
+                <Button type="submit" disabled={loading || !userId}>
+                  Save Profile
+                </Button>
+                <Button variant="ghost" onClick={loadMe} disabled={loading || !userId}>
+                  Refresh Me
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          <Card title="Availability" subtitle="Add weekly slots to improve match quality.">
+            <form className="grid grid-inline" onSubmit={addSlot}>
+              <InputField label="Weekday (0=Sun)">
+                <input name="weekday" type="number" min={0} max={6} defaultValue={2} required />
+              </InputField>
+              <InputField label="Start">
+                <input name="startTime" type="time" defaultValue="10:00" required />
+              </InputField>
+              <InputField label="End">
+                <input name="endTime" type="time" defaultValue="11:30" required />
+              </InputField>
+              <InputField label="Area">
+                <input name="area" defaultValue="Gangnam" required />
+              </InputField>
+              <Button type="submit" disabled={loading || !userId}>
+                Add Slot
+              </Button>
+            </form>
+            <div className="chips">
+              {(me?.availability ?? []).map((slot) => (
+                <Badge key={slot.id}>D{slot.weekday} · {slot.startTime}-{slot.endTime} · {slot.area}</Badge>
+              ))}
+              {(me?.availability ?? []).length === 0 ? <p className="empty">No availability yet. Add at least one slot.</p> : null}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {activeStep === 'matching' ? (
+        <div className="stack">
+          <Card title="Smart Suggestions" subtitle="Candidates ranked by interests, region, and time overlap.">
+            <div className="row">
+              <Button onClick={loadSuggestions} disabled={loading || !userId}>
+                Load Suggestions
+              </Button>
+              <Button variant="ghost" onClick={refreshProposals} disabled={loading || !userId}>
+                Refresh My Proposals
+              </Button>
+            </div>
+            <div className="list">
+              {suggestions.map((s) => (
+                <article className="item" key={s.user.id}>
+                  <div>
+                    <strong>{s.user.nickname}</strong>
+                    <p>{s.user.bio || 'No bio yet.'}</p>
+                    <small>Score {s.score} · overlap interests {s.breakdown.overlapInterests}</small>
+                  </div>
+                  <Button onClick={() => createProposal(s.user.id)} disabled={loading}>
+                    Send Proposal
+                  </Button>
+                </article>
+              ))}
+              {suggestions.length === 0 ? <p className="empty">No suggestions loaded yet.</p> : null}
+            </div>
+          </Card>
+
+          <Card title="Proposal Inbox" subtitle="Accept or reject pending proposals. Accepting creates appointment.">
+            <InputField label="Manual proposal ID">
+              <input value={proposalId} onChange={(e) => setProposalId(e.target.value)} placeholder="proposal id" />
+            </InputField>
+            <div className="list">
+              {proposals.map((p) => (
+                <article className="item" key={p.id}>
+                  <div>
+                    <strong>{p.id.slice(0, 8)}...</strong>
+                    <p>
+                      {p.proposerId} → {p.partnerId}
+                    </p>
+                    <Badge tone={p.status === 'PENDING' ? 'warn' : 'neutral'}>{p.status}</Badge>
+                  </div>
+                  {p.status === 'PENDING' ? (
+                    <div className="row">
+                      <Button onClick={() => acceptProposal(p.id)} disabled={loading}>
+                        Accept
+                      </Button>
+                      <Button variant="danger" onClick={() => rejectProposal(p.id)} disabled={loading}>
+                        Reject
+                      </Button>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+              {proposals.length === 0 ? <p className="empty">No proposal history yet.</p> : null}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {activeStep === 'appointment' ? (
+        <div className="stack">
+          <Card title="Appointment Lifecycle" subtitle="Handle check-in, review, no-show and incident reports.">
+            <div className="grid grid-inline">
+              <InputField label="Appointment ID">
+                <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="appointment id" />
+              </InputField>
+              <InputField label="Partner User ID">
+                <input value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} placeholder="other participant id" />
+              </InputField>
+              <InputField label="Check-in Code">
+                <input value={checkinCode} onChange={(e) => setCheckinCode(e.target.value)} placeholder="4-digit code" />
+              </InputField>
+            </div>
+            <div className="row wrap">
+              <Button onClick={loadAppointment} disabled={loading || !appointmentId}>
+                Load Appointment
+              </Button>
+              <Button onClick={submitCheckin} disabled={loading || !appointmentId || !checkinCode}>
+                Check In
+              </Button>
+              <Button variant="secondary" onClick={submitReview} disabled={loading || !appointmentId || !targetUserId}>
+                Submit Review
+              </Button>
+              <Button variant="danger" onClick={submitNoShow} disabled={loading || !appointmentId || !targetUserId}>
+                Report No-show
+              </Button>
+              <Button variant="ghost" onClick={submitReport} disabled={loading || !appointmentId || !targetUserId}>
+                Incident Report
+              </Button>
+            </div>
+            {appointment ? (
+              <div className="appointment-box">
+                <p>
+                  <strong>{appointment.place}</strong> · {new Date(appointment.startsAt).toLocaleString()}
+                </p>
+                <p>
+                  Status: <Badge tone={appointment.status === 'COMPLETED' ? 'good' : appointment.status === 'NO_SHOW' ? 'bad' : 'warn'}>{appointment.status}</Badge>
+                </p>
+              </div>
+            ) : (
+              <p className="empty">No appointment loaded.</p>
+            )}
+          </Card>
+        </div>
+      ) : null}
+
+      {activeStep === 'admin' ? (
+        <Card title="Admin Moderation" subtitle="Moderate open user reports with secure API key.">
+          <div className="row">
+            <Button onClick={loadOpenReports} disabled={loading || !adminKey}>
+              Load Open Reports
+            </Button>
+          </div>
+          <div className="list">
+            {reports.map((report) => (
+              <article className="item" key={report.id}>
+                <div>
+                  <strong>{report.reason}</strong>
+                  <p>Report #{report.id.slice(0, 8)} · target {report.targetUserId.slice(0, 8)}...</p>
+                  <Badge tone="warn">{report.status}</Badge>
+                </div>
+                <Button variant="secondary" onClick={() => resolveReport(report.id)} disabled={loading}>
+                  Resolve (Warning)
+                </Button>
+              </article>
             ))}
-          </select>
-          <input name="email" placeholder="email@example.com" required />
-          <input name="nickname" placeholder="nickname" required />
-          <button type="submit">Login / Upsert</button>
-        </form>
-        <button onClick={() => run('Phone verify', () => api.verifyPhone(userId))}>Verify Phone</button>
-      </section>
-
-      <section className="panel">
-        <h2>2) Profile / Interests</h2>
-        <div className="actions">
-          <button onClick={() => run('Load me', () => api.me(userId))}>Load Me</button>
-          <button onClick={() => run('Update profile', () => api.updateProfile({ userId, nickname: 'Coffee Friend', bio: 'Let us chat', region: 'seoul' }))}>
-            Quick Profile Update
-          </button>
-          <button onClick={() => run('Update interests', () => api.updateInterests({ userId, interests: ['coffee', 'startup', 'design'] }))}>
-            Quick Interests Update
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>3) Availability</h2>
-        <div className="actions">
-          <button onClick={() => run('Availability list', () => api.availability(userId))}>List Slots</button>
-          <button
-            onClick={() =>
-              run('Add slot', () => api.addAvailability({ userId, weekday: 2, startTime: '10:00', endTime: '11:30', area: 'Gangnam' }))
-            }
-          >
-            Add Sample Slot
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>4) Match Suggestions / Proposals</h2>
-        <div className="actions">
-          <button
-            onClick={() =>
-              run('Suggestions', async () => {
-                const res = await api.suggestions(userId)
-                setSuggestions(res)
-                return res
-              })
-            }
-          >
-            Load Suggestions
-          </button>
-          <button
-            onClick={() =>
-              run('Create proposal', () =>
-                api.createProposal({ proposerId: userId, partnerId: suggestions[0]?.user.id ?? '', message: 'Coffee this Friday?' }),
-              )
-            }
-          >
-            Propose to Top Suggestion
-          </button>
-          <button onClick={() => run('My proposals', () => api.proposals(userId))}>Load Proposals</button>
-          <button
-            onClick={() =>
-              run('Accept proposal', () =>
-                api.acceptProposal(proposalId, { accepterId: userId, place: 'Cafe Layered', startsAt: new Date(Date.now() + 86400000).toISOString() }),
-              )
-            }
-          >
-            Accept Proposal
-          </button>
-          <button onClick={() => run('Reject proposal', () => api.rejectProposal(proposalId, userId))}>Reject Proposal</button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>5) Appointments / Check-in / Review / Report</h2>
-        <div className="actions">
-          <button onClick={() => run('Appointment detail', () => api.appointment(appointmentId))}>Load Appointment</button>
-          <button onClick={() => run('Check-in', () => api.checkin(appointmentId, { userId, code: checkinCode }))}>Check-in</button>
-          <button
-            onClick={() =>
-              run('No-show', () => api.noShow(appointmentId, { reporterId: userId, targetUserId, reason: 'did not arrive' }))
-            }
-          >
-            Report No-show
-          </button>
-          <button
-            onClick={() =>
-              run('Review', () => api.review(appointmentId, { reviewerId: userId, revieweeId: targetUserId, comment: 'Great conversation', scoreDelta: 2 }))
-            }
-          >
-            Submit Review
-          </button>
-          <button
-            onClick={() =>
-              run('Report', () => api.report(appointmentId, { reporterId: userId, targetUserId, reason: 'inappropriate behavior' }))
-            }
-          >
-            Submit Incident Report
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>6) Admin Reports (key input)</h2>
-        <button
-          onClick={() =>
-            run('Open reports', async () => {
-              const res = await api.adminReports(adminKey)
-              setReports(res)
-              return res
-            })
-          }
-        >
-          Load Open Reports
-        </button>
-        <p>Open report count: {reports.length}</p>
-      </section>
-
-      <section className="panel output">
-        <h2>Output</h2>
-        <pre>{output}</pre>
-      </section>
+            {reports.length === 0 ? <p className="empty">No open reports at the moment.</p> : null}
+          </div>
+        </Card>
+      ) : null}
     </div>
   )
 }

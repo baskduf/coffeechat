@@ -96,6 +96,13 @@ export const api = {
   adminReports(adminApiKey: string) {
     return request<Report[]>('/admin/reports', { headers: { 'x-admin-api-key': adminApiKey } })
   },
+  adminResolveReport(adminApiKey: string, reportId: string, payload: { sanction?: 'WARNING' | 'SUSPEND_7D' | 'SUSPEND_30D' | 'BAN'; trustDelta?: number }) {
+    return request<{ ok: boolean }>(`/admin/reports/${reportId}/resolve`, {
+      method: 'POST',
+      headers: { 'x-admin-api-key': adminApiKey },
+      body: JSON.stringify(payload),
+    })
+  },
 }
 
 export function getApiErrorMessage(error: unknown) {
