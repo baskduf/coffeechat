@@ -274,16 +274,37 @@ app.get('/admin/reports', async (_req, res) => {
 })
 
 app.post('/admin/reports/:id/resolve', async (req, res) => {
-  const body = z.object({ sanction: z.enum(['WARNING', 'SUSPEND_7D', 'SUSPEND_30D', 'BAN']).optional() }).safeParse(req.body)
+  const body = z
+    .object({
+      sanction: z.enum(['WARNING', 'SUSPEND_7D', 'SUSPEND_30D', 'BAN']).optional(),
+      trustDelta: z.number().int().min(-30).max(5).default(-5),
+    })
+    .safeParse(req.body)
   if (!body.success) return res.status(400).json(body.error.flatten())
 
   const report = await prisma.report.update({ where: { id: req.params.id }, data: { status: 'RESOLVED' } })
+
+  await prisma.user.update({
+    where: { id: report.targetUserId },
+    data: { trustScore: { increment: body.data.trustDelta } },
+  })
+
   if (body.data.sanction) {
-    const endAt = body.data.sanction === 'SUSPEND_7D' ? new Date(Date.now() + 7 * 86400000) : body.data.sanction === 'SUSPEND_30D' ? new Date(Date.now() + 30 * 86400000) : null
+    const endAt = body.data.sanction === 'SUSPEND_7D'
+      ? new Date(Date.now() + 7 * 86400000)
+      : body.data.sanction === 'SUSPEND_30D'
+        ? new Date(Date.now() + 30 * 86400000)
+        : null
+
     await prisma.sanction.create({
       data: { userId: report.targetUserId, level: body.data.sanction, reason: `Report ${report.id} resolved`, endAt },
     })
+
+    if (body.data.sanction === 'BAN') {
+      await prisma.user.update({ where: { id: report.targetUserId }, data: { blocked: true } })
+    }
   }
+
   res.json({ ok: true })
 })
 

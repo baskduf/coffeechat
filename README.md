@@ -47,7 +47,7 @@ npm run test:flow
 - `POST /appointments/:id/report`
 - `POST /appointments/:id/no-show`
 - `GET /admin/reports`
-- `POST /admin/reports/:id/resolve`
+- `POST /admin/reports/:id/resolve` (trustDelta 반영, BAN 시 blocked=true)
 
 ## 단계별 계획
 1. 프로젝트/스키마 구성 ✅
