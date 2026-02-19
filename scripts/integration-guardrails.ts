@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 
 const API = 'http://127.0.0.1:4000'
 const ADMIN_API_KEY = 'dev-admin-key'
@@ -144,23 +144,23 @@ async function main() {
     // Matching quality: overlap-heavy profile should rank above weak overlap profile
     const matcher = await post('/auth/google', { email: `matcher-${Date.now()}@dev.com`, nickname: 'matcher' })
     assertStatus(matcher.status, 200, 'create matcher user')
-    await post('/me/profile', { userId: matcher.json.user.id, nickname: 'matcher', region: 'seoul' })
-    await post('/me/interests', { userId: matcher.json.user.id, interests: ['coffee', 'startup', 'ai'] })
+    await put('/me/profile', { userId: matcher.json.user.id, nickname: 'matcher', region: 'seoul' })
+    await put('/me/interests', { userId: matcher.json.user.id, interests: ['coffee', 'startup', 'ai'] })
     await post('/me/availability', { userId: matcher.json.user.id, weekday: 2, startTime: '09:00', endTime: '12:00', area: 'gangnam' })
 
     const strong = await post('/auth/kakao', { email: `strong-${Date.now()}@dev.com`, nickname: 'strong' })
-    await post('/me/profile', { userId: strong.json.user.id, nickname: 'strong', region: 'seoul' })
-    await post('/me/interests', { userId: strong.json.user.id, interests: ['coffee', 'startup'] })
+    await put('/me/profile', { userId: strong.json.user.id, nickname: 'strong', region: 'seoul' })
+    await put('/me/interests', { userId: strong.json.user.id, interests: ['coffee', 'startup'] })
     await post('/me/availability', { userId: strong.json.user.id, weekday: 2, startTime: '10:00', endTime: '13:00', area: 'gangnam' })
 
     const weak = await post('/auth/apple', { email: `weak-${Date.now()}@dev.com`, nickname: 'weak' })
-    await post('/me/profile', { userId: weak.json.user.id, nickname: 'weak', region: 'busan' })
-    await post('/me/interests', { userId: weak.json.user.id, interests: ['music'] })
+    await put('/me/profile', { userId: weak.json.user.id, nickname: 'weak', region: 'busan' })
+    await put('/me/interests', { userId: weak.json.user.id, interests: ['music'] })
     await post('/me/availability', { userId: weak.json.user.id, weekday: 4, startTime: '18:00', endTime: '19:00', area: 'haeundae' })
 
     const restricted = await post('/auth/google', { email: `restricted-${Date.now()}@dev.com`, nickname: 'restricted' })
-    await post('/me/profile', { userId: restricted.json.user.id, nickname: 'restricted', region: 'seoul' })
-    await post('/me/interests', { userId: restricted.json.user.id, interests: ['coffee', 'startup', 'ai'] })
+    await put('/me/profile', { userId: restricted.json.user.id, nickname: 'restricted', region: 'seoul' })
+    await put('/me/interests', { userId: restricted.json.user.id, interests: ['coffee', 'startup', 'ai'] })
     await post('/me/availability', { userId: restricted.json.user.id, weekday: 2, startTime: '09:30', endTime: '11:00', area: 'gangnam' })
     const restrictByAdmin = await post(
       `/admin/users/${restricted.json.user.id}/sanction`,
