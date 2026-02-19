@@ -162,6 +162,39 @@ app.post('/appointments/:id/checkin-code', async (req, res) => {
   res.json(check)
 })
 
+app.post('/appointments/:id/no-show', async (req, res) => {
+  const body = z.object({ userId: z.string(), reason: z.string().default('no-show') }).safeParse(req.body)
+  if (!body.success) return res.status(400).json(body.error.flatten())
+
+  const appt = await prisma.appointment.update({ where: { id: req.params.id }, data: { status: 'NO_SHOW' } })
+
+  const now = new Date()
+  const from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+  const noShowCount = await prisma.sanction.count({
+    where: {
+      userId: body.data.userId,
+      reason: { startsWith: 'no-show' },
+      createdAt: { gte: from },
+    },
+  })
+
+  const level = noShowCount === 0 ? 'SUSPEND_7D' : noShowCount === 1 ? 'SUSPEND_30D' : 'BAN'
+  const endAt = level === 'SUSPEND_7D' ? new Date(now.getTime() + 7 * 86400000) : level === 'SUSPEND_30D' ? new Date(now.getTime() + 30 * 86400000) : null
+
+  const sanction = await prisma.sanction.create({
+    data: {
+      userId: body.data.userId,
+      level,
+      reason: `no-show:${body.data.reason}:appointment=${appt.id}`,
+      endAt,
+    },
+  })
+
+  await prisma.user.update({ where: { id: body.data.userId }, data: { trustScore: { decrement: 10 } } })
+
+  res.json({ appointment: appt, sanction, strikesIn90d: noShowCount + 1 })
+})
+
 app.post('/appointments/:id/review', async (req, res) => {
   const body = z
     .object({ reviewerId: z.string(), revieweeId: z.string(), comment: z.string().min(1), scoreDelta: z.number().int().min(-5).max(5).default(1) })

@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "seed": "tsx prisma/seed.ts",
+    "test:flow": "tsx scripts/e2e-flow.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
