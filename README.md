@@ -66,7 +66,10 @@ npm run test:integration
 - **Admin API 보호**
   - 키 없거나 불일치 시 `401 UNAUTHORIZED`
 
-## 5) API 예시
+## 5) API 문서
+- 상세 명세: `docs/api.md`
+
+## 6) API 예시
 ### 로그인
 ```bash
 curl -X POST http://127.0.0.1:4000/auth/google \
