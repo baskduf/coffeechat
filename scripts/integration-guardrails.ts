@@ -64,7 +64,7 @@ async function createAcceptedAppointment(emailPrefixA: string, emailPrefixB: str
 }
 
 async function main() {
-  execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' })
+  execSync('npx prisma db push --force-reset --accept-data-loss', { stdio: 'inherit' })
 
   const server = spawn('node', ['dist/server.js'], {
     stdio: 'inherit',
