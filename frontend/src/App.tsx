@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, getApiErrorMessage } from './api'
 import type { Appointment, MatchProposal, MatchSuggestion, OAuthProvider, Report, User } from './types'
@@ -40,6 +40,29 @@ function App() {
 
   const [interestInput, setInterestInput] = useState('coffee, startup, design')
   const [checkinCode, setCheckinCode] = useState('')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('coffeechat.frontend.state')
+    if (!saved) return
+    try {
+      const st = JSON.parse(saved)
+      if (st.userId) setUserId(st.userId)
+      if (st.adminKey) setAdminKey(st.adminKey)
+      if (st.activeStep) setActiveStep(st.activeStep)
+      if (st.proposalId) setProposalId(st.proposalId)
+      if (st.appointmentId) setAppointmentId(st.appointmentId)
+      if (st.targetUserId) setTargetUserId(st.targetUserId)
+      if (st.checkinCode) setCheckinCode(st.checkinCode)
+      if (st.interestInput) setInterestInput(st.interestInput)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(
+      'coffeechat.frontend.state',
+      JSON.stringify({ userId, adminKey, activeStep, proposalId, appointmentId, targetUserId, checkinCode, interestInput }),
+    )
+  }, [userId, adminKey, activeStep, proposalId, appointmentId, targetUserId, checkinCode, interestInput])
 
   const nextStep = useMemo(() => {
     const index = steps.findIndex((step) => step.key === activeStep)
