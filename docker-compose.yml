@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    container_name: coffeechat-mvp-api
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: ${PORT:-4000}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-dev-admin-key}
+      DATABASE_URL: file:/app/prisma/dev.db
+    volumes:
+      - coffeechat_db:/app/prisma
+    restart: unless-stopped
+
+volumes:
+  coffeechat_db:

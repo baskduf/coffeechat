@@ -66,8 +66,11 @@ npm run test:integration
 - **Admin API 보호**
   - 키 없거나 불일치 시 `401 UNAUTHORIZED`
 
-## 5) API 문서
-- 상세 명세: `docs/api.md`
+## 5) 문서
+- API 상세 명세: `docs/api.md`
+- 배포 가이드: `docs/DEPLOYMENT.md`
+- 정책/보안 일관성 점검: `docs/policy-security-check.md`
+- 요구사항 최종 체크리스트: `docs/final-checklist.md`
 
 ## 6) API 예시
 ### 로그인
