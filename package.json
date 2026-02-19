@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "test:flow": "tsx scripts/e2e-flow.ts"
+    "test:flow": "tsx scripts/e2e-flow.ts",
+    "test:integration": "tsx scripts/integration-guardrails.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

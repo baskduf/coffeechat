@@ -32,6 +32,13 @@ npm run seed
 npm run test:flow
 ```
 
+## Integration Guardrails 테스트
+빌드 산출물 기준으로 서버를 자동 실행해 정책 가드레일을 검증:
+```bash
+npm run build
+npm run test:integration
+```
+
 ## 주요 API
 - `POST /auth/:provider`
 - `POST /auth/phone/verify`
@@ -45,7 +52,7 @@ npm run test:flow
 - `POST /appointments/:id/checkin-code`
 - `POST /appointments/:id/review`
 - `POST /appointments/:id/report`
-- `POST /appointments/:id/no-show`
+- `POST /appointments/:id/no-show` (`reporterId`, `targetUserId` 필요)
 - `GET /admin/reports`
 - `POST /admin/reports/:id/resolve` (trustDelta 반영, BAN 시 blocked=true)
 
