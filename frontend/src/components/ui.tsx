@@ -48,5 +48,28 @@ export function Badge({ tone = 'neutral', children }: PropsWithChildren<{ tone?:
 }
 
 export function Notice({ type, message }: { type: 'idle' | 'success' | 'error'; message: string }) {
-  return <div className={`notice notice-${type}`}>{message}</div>
+  return (
+    <div className={`notice notice-${type}`} role="status" aria-live="polite">
+      {message}
+    </div>
+  )
+}
+
+export function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="skeleton-wrap" aria-hidden="true">
+      {Array.from({ length: lines }).map((_, idx) => (
+        <div key={idx} className="skeleton-line" />
+      ))}
+    </div>
+  )
+}
+
+export function EmptyState({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="empty-state">
+      <p className="empty-title">{title}</p>
+      <p className="empty">{message}</p>
+    </div>
+  )
 }
