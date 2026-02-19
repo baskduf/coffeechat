@@ -1,53 +1,53 @@
-# CoffeeChat Frontend UX Plan (Finalized MVP)
+# CoffeeChat 프론트엔드 UX 계획 (최종본)
 
-## Objective
-백엔드 API와 실제로 연동되는 **production-like MVP UX**를 구현한다.
-핵심은 기능 버튼 나열이 아니라 사용자 여정 중심의 완결된 플로우다.
+## 목표
+백엔드 API와 실제로 연동되는 **실서비스형 MVP UX**를 구현한다.  
+핵심은 버튼 나열이 아니라, 사용자 여정이 자연스럽게 이어지는 완결된 흐름이다.
 
-## Final User Journey
-1. **Onboarding/Auth**
+## 최종 사용자 여정
+1. **온보딩/인증**
    - OAuth(mock) 로그인
-   - phone verify
-   - 생성된 userId를 전역 컨텍스트로 사용
-2. **Profile Setup**
-   - profile 정보 수정 (nickname, bio, region)
-   - interests 다중 입력
-   - availability slot 등록으로 매칭 품질 확보
-3. **Suggestion/Proposal**
-   - 추천 목록 조회(점수 + 설명)
-   - proposal 생성
-   - proposal 수락/거절
-   - 수락 시 appointment 자동 생성
-4. **Appointment Lifecycle**
-   - appointment 조회
-   - check-in code 처리
-   - completed 후 review
-   - no-show / incident report 처리
-5. **Admin Moderation**
-   - open reports 조회 (admin key 헤더)
-   - report resolve + sanction/trust 처리
+   - 휴대폰 인증
+   - 생성된 `userId`를 앱 전역 컨텍스트로 사용
+2. **프로필 설정**
+   - 프로필 수정 (닉네임, 소개, 지역)
+   - 관심사 다중 입력
+   - 가능 시간 슬롯 등록으로 매칭 품질 향상
+3. **추천/제안**
+   - 추천 목록 조회 (점수 + 설명)
+   - 제안 생성
+   - 제안 수락/거절
+   - 수락 시 약속 자동 생성
+4. **약속 라이프사이클**
+   - 약속 조회
+   - 체크인 코드 처리
+   - 완료 후 리뷰
+   - no-show / 사건 신고 처리
+5. **관리자 모더레이션**
+   - 열린 신고 조회 (관리자 키 헤더 필요)
+   - 신고 처리 + 제재/신뢰도 반영
 
-## Frontend Structure
+## 프론트 구조
 - `src/App.tsx`
-  - 단계형 시나리오 orchestration
-  - 공통 상태(user, proposal, appointment, reports)
+  - 단계형 시나리오 오케스트레이션
+  - 공통 상태(user, proposal, appointment, reports) 관리
 - `src/components/ui.tsx`
-  - Button/Card/InputField/Badge/Notice 등 재사용 UI
+  - Button/Card/InputField/Badge/Notice 재사용 컴포넌트
 - `src/components/JourneyNav.tsx`
-  - 현재 단계, 완료 상태, 단계 이동
+  - 현재 단계/완료 상태/단계 이동 UI
 - `src/api.ts`
   - 타입 기반 API 바인딩 + 공통 에러 처리
 
-## Design System Rules
-- 카드 기반 레이아웃 + 충분한 여백
-- 명확한 CTA 버튼(primary/secondary/ghost/danger)
+## 디자인 시스템 원칙
+- 카드 중심 레이아웃 + 충분한 여백
+- 명확한 CTA 버튼(기본/보조/고스트/위험)
 - 상태 메시지 통합(notice: idle/success/error)
 - 빈 상태/로딩 비활성화/실패 메시지 일관성
-- 반응형: 모바일에서 단일 컬럼으로 자동 변환
+- 반응형: 모바일에서 단일 컬럼 자동 전환
 
-## Acceptance Checklist
-- [x] 온보딩~관리자 모더레이션까지 단일 앱에서 흐름 연결
+## 완료 체크리스트
+- [x] 온보딩 ~ 관리자 모더레이션까지 단일 앱 흐름 연결
 - [x] 주요 액션이 실제 API와 양방향 데이터 연동
 - [x] 공통 UI 컴포넌트로 스타일 일관성 확보
-- [x] README에 실행/플로우 문서화
+- [x] README 실행/플로우 문서화
 - [x] `npm run build` 성공

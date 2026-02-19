@@ -32,7 +32,7 @@ export function JourneyNav({
               <strong>
                 {index + 1}. {step.label}
               </strong>
-              {completed.has(step.key) ? <Badge tone="good">Done</Badge> : null}
+              {completed.has(step.key) ? <Badge tone="good">완료</Badge> : null}
             </div>
             <p>{step.desc}</p>
           </button>

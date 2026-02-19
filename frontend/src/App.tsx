@@ -9,11 +9,11 @@ import './App.css'
 const providers: OAuthProvider[] = ['google', 'kakao', 'apple']
 
 const steps: JourneyStep[] = [
-  { key: 'onboarding', label: 'Onboarding & Auth', desc: 'Login with mock OAuth and verify your phone to start.' },
-  { key: 'profile', label: 'Profile Setup', desc: 'Set nickname, bio, region, interests, and weekly availability.' },
-  { key: 'matching', label: 'Suggestions & Proposals', desc: 'Find best matches and send/handle proposals.' },
-  { key: 'appointment', label: 'Appointment Lifecycle', desc: 'Check-in, review partner, or report issues / no-show.' },
-  { key: 'admin', label: 'Admin Moderation', desc: 'Review open incident reports and resolve them with sanctions.' },
+  { key: 'onboarding', label: '온보딩 & 인증', desc: '모의 OAuth 로그인 후 휴대폰 인증으로 시작합니다.' },
+  { key: 'profile', label: '프로필 설정', desc: '닉네임/소개/지역/관심사/주간 가능 시간을 설정합니다.' },
+  { key: 'matching', label: '추천 & 제안', desc: '적합한 상대를 찾고 제안을 보내거나 처리합니다.' },
+  { key: 'appointment', label: '약속 진행', desc: '체크인, 리뷰, 문제 신고/no-show 처리를 진행합니다.' },
+  { key: 'admin', label: '관리자 모더레이션', desc: '열린 신고를 검토하고 제재로 처리합니다.' },
 ]
 
 type Status = { type: 'idle' | 'success' | 'error'; message: string }
@@ -35,7 +35,7 @@ function App() {
   const [appointmentId, setAppointmentId] = useState('')
   const [targetUserId, setTargetUserId] = useState('')
 
-  const [status, setStatus] = useState<Status>({ type: 'idle', message: 'Welcome to CoffeeChat. Start from onboarding.' })
+  const [status, setStatus] = useState<Status>({ type: 'idle', message: 'CoffeeChat에 오신 것을 환영합니다. 온보딩부터 시작하세요.' })
   const [loading, setLoading] = useState(false)
 
   const [interestInput, setInterestInput] = useState('coffee, startup, design')
@@ -51,7 +51,7 @@ function App() {
     setStatus({ type: 'idle', message: `${label}...` })
     try {
       await fn()
-      setStatus({ type: 'success', message: `${label} completed.` })
+      setStatus({ type: 'success', message: `${label} 완료.` })
     } catch (error) {
       setStatus({ type: 'error', message: getApiErrorMessage(error) })
     } finally {
@@ -70,7 +70,7 @@ function App() {
     const email = String(fd.get('email'))
     const nickname = String(fd.get('nickname'))
 
-    await run('Authenticating user', async () => {
+    await run('사용자 인증 중', async () => {
       const authRes = await api.auth(provider, email, nickname)
       setUserId(authRes.user.id)
       const verifyRes = await api.verifyPhone(authRes.user.id)
@@ -81,7 +81,7 @@ function App() {
   }
 
   const loadMe = async () => {
-    await run('Loading profile', async () => {
+    await run('프로필 불러오는 중', async () => {
       const res = await api.me(userId)
       setMe(res)
       if (res.interests.length > 0 && res.availability.length > 0) {
@@ -94,7 +94,7 @@ function App() {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
 
-    await run('Saving profile and interests', async () => {
+    await run('프로필/관심사 저장 중', async () => {
       await api.updateProfile({
         userId,
         nickname: String(fd.get('nickname')),
@@ -120,7 +120,7 @@ function App() {
   const addSlot = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    await run('Adding availability slot', async () => {
+    await run('가능 시간 추가 중', async () => {
       await api.addAvailability({
         userId,
         weekday: Number(fd.get('weekday')),
@@ -134,7 +134,7 @@ function App() {
   }
 
   const loadSuggestions = async () => {
-    await run('Loading match suggestions', async () => {
+    await run('매칭 추천 불러오는 중', async () => {
       const res = await api.suggestions(userId)
       setSuggestions(res)
       markDone('matching')
@@ -142,8 +142,8 @@ function App() {
   }
 
   const createProposal = async (partnerId: string) => {
-    await run('Creating proposal', async () => {
-      const proposal = await api.createProposal({ proposerId: userId, partnerId, message: 'Coffee this week?' })
+    await run('제안 생성 중', async () => {
+      const proposal = await api.createProposal({ proposerId: userId, partnerId, message: '이번 주 커피챗 하실래요?' })
       setProposalId(proposal.id)
       const myProposals = await api.proposals(userId)
       setProposals(myProposals)
@@ -151,17 +151,17 @@ function App() {
   }
 
   const refreshProposals = async () => {
-    await run('Refreshing proposals', async () => {
+    await run('제안 목록 새로고침 중', async () => {
       const res = await api.proposals(userId)
       setProposals(res)
     })
   }
 
   const acceptProposal = async (id: string) => {
-    await run('Accepting proposal', async () => {
+    await run('제안 수락 중', async () => {
       const res = await api.acceptProposal(id, {
         accepterId: userId,
-        place: 'Cafe Layered, Gangnam',
+        place: '강남 카페 레이어드',
         startsAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
       })
       setAppointment(res.appointment)
@@ -174,14 +174,14 @@ function App() {
   }
 
   const rejectProposal = async (id: string) => {
-    await run('Rejecting proposal', async () => {
+    await run('제안 거절 중', async () => {
       await api.rejectProposal(id, userId)
       await refreshProposals()
     })
   }
 
   const loadAppointment = async () => {
-    await run('Loading appointment', async () => {
+    await run('약속 정보 불러오는 중', async () => {
       const appt = await api.appointment(appointmentId)
       setAppointment(appt)
       setCheckinCode(appt.checkinCode)
@@ -189,7 +189,7 @@ function App() {
   }
 
   const submitCheckin = async () => {
-    await run('Submitting check-in', async () => {
+    await run('체크인 처리 중', async () => {
       await api.checkin(appointmentId, { userId, code: checkinCode })
       const appt = await api.appointment(appointmentId)
       setAppointment(appt)
@@ -200,11 +200,11 @@ function App() {
   }
 
   const submitReview = async () => {
-    await run('Submitting review', async () => {
+    await run('리뷰 등록 중', async () => {
       await api.review(appointmentId, {
         reviewerId: userId,
         revieweeId: targetUserId,
-        comment: 'Great conversation and good energy.',
+        comment: '대화가 좋았고 분위기도 편했습니다.',
         scoreDelta: 2,
       })
       markDone('appointment')
@@ -212,8 +212,8 @@ function App() {
   }
 
   const submitNoShow = async () => {
-    await run('Reporting no-show', async () => {
-      await api.noShow(appointmentId, { reporterId: userId, targetUserId, reason: 'did not arrive in 20 minutes' })
+    await run('노쇼 신고 중', async () => {
+      await api.noShow(appointmentId, { reporterId: userId, targetUserId, reason: '20분 이상 미도착' })
       const appt = await api.appointment(appointmentId)
       setAppointment(appt)
       markDone('appointment')
@@ -221,18 +221,18 @@ function App() {
   }
 
   const submitReport = async () => {
-    await run('Submitting incident report', async () => {
+    await run('사건 신고 등록 중', async () => {
       await api.report(appointmentId, {
         reporterId: userId,
         targetUserId,
-        reason: 'Inappropriate communication during the meeting',
-        evidence: 'Conversation summary logged by user',
+        reason: '미팅 중 부적절한 커뮤니케이션',
+        evidence: '사용자 기록 대화 요약',
       })
     })
   }
 
   const loadOpenReports = async () => {
-    await run('Loading open reports', async () => {
+    await run('열린 신고 불러오는 중', async () => {
       const res = await api.adminReports(adminKey)
       setReports(res)
       markDone('admin')
@@ -240,7 +240,7 @@ function App() {
   }
 
   const resolveReport = async (reportId: string) => {
-    await run('Resolving report', async () => {
+    await run('신고 처리 중', async () => {
       await api.adminResolveReport(adminKey, reportId, { sanction: 'WARNING', trustDelta: -5 })
       const updated = await api.adminReports(adminKey)
       setReports(updated)
@@ -253,7 +253,7 @@ function App() {
       <header className="topbar">
         <div>
           <h1>CoffeeChat MVP</h1>
-          <p>Production-like end-to-end flow from onboarding to admin moderation.</p>
+          <p>온보딩부터 관리자 모더레이션까지 이어지는 종단 간 MVP 흐름</p>
         </div>
         <Badge tone="neutral">API: {import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'}</Badge>
       </header>
@@ -261,23 +261,23 @@ function App() {
       <JourneyNav steps={steps} active={activeStep} completed={completed} onSelect={setActiveStep} />
 
       <div className="global-controls">
-        <InputField label="Current user ID">
-          <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="user UUID from auth" />
+        <InputField label="현재 사용자 ID">
+          <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="인증 후 발급된 사용자 ID" />
         </InputField>
-        <InputField label="Admin API key">
+        <InputField label="관리자 API 키">
           <input value={adminKey} onChange={(e) => setAdminKey(e.target.value)} placeholder="x-admin-api-key" />
         </InputField>
         <Button variant="secondary" onClick={() => setActiveStep(nextStep)}>
-          Next Step
+          다음 단계
         </Button>
       </div>
 
       <Notice type={status.type} message={status.message} />
 
       {activeStep === 'onboarding' ? (
-        <Card title="Onboarding & Auth" subtitle="Mock OAuth login + automatic phone verification">
+        <Card title="온보딩 & 인증" subtitle="모의 OAuth 로그인 + 자동 휴대폰 인증">
           <form className="grid" onSubmit={onAuthSubmit}>
-            <InputField label="Provider">
+            <InputField label="제공자">
               <select name="provider" defaultValue="google">
                 {providers.map((provider) => (
                   <option key={provider} value={provider}>
@@ -286,14 +286,14 @@ function App() {
                 ))}
               </select>
             </InputField>
-            <InputField label="Email">
+            <InputField label="이메일">
               <input name="email" placeholder="you@example.com" required />
             </InputField>
-            <InputField label="Nickname">
+            <InputField label="닉네임">
               <input name="nickname" placeholder="CoffeeFriend" required />
             </InputField>
             <Button type="submit" disabled={loading}>
-              Start Journey
+              여정 시작
             </Button>
           </form>
         </Card>
@@ -301,54 +301,54 @@ function App() {
 
       {activeStep === 'profile' ? (
         <div className="stack">
-          <Card title="Profile & Interests" subtitle="Add basic identity and what you like to talk about.">
+          <Card title="프로필 & 관심사" subtitle="기본 정보와 관심 대화 주제를 입력하세요.">
             <form className="grid" onSubmit={saveProfile}>
-              <InputField label="Nickname">
-                <input name="nickname" defaultValue={me?.nickname ?? 'Coffee Friend'} required />
+              <InputField label="닉네임">
+                <input name="nickname" defaultValue={me?.nickname ?? '커피친구'} required />
               </InputField>
-              <InputField label="Bio">
-                <input name="bio" defaultValue={me?.bio ?? ''} placeholder="Product designer who loves espresso" />
+              <InputField label="소개">
+                <input name="bio" defaultValue={me?.bio ?? ''} placeholder="에스프레소를 좋아하는 프로덕트 디자이너" />
               </InputField>
-              <InputField label="Region">
+              <InputField label="지역">
                 <input name="region" defaultValue={me?.region ?? ''} placeholder="seoul" />
               </InputField>
-              <InputField label="Interests (comma separated)">
+              <InputField label="관심사(콤마로 구분)">
                 <input value={interestInput} onChange={(e) => setInterestInput(e.target.value)} />
               </InputField>
               <div className="row">
                 <Button type="submit" disabled={loading || !userId}>
-                  Save Profile
+                  프로필 저장
                 </Button>
                 <Button variant="ghost" onClick={loadMe} disabled={loading || !userId}>
-                  Refresh Me
+                  내 정보 새로고침
                 </Button>
               </div>
             </form>
           </Card>
 
-          <Card title="Availability" subtitle="Add weekly slots to improve match quality.">
+          <Card title="가능 시간" subtitle="주간 가능 시간을 추가하면 매칭 품질이 좋아집니다.">
             <form className="grid grid-inline" onSubmit={addSlot}>
-              <InputField label="Weekday (0=Sun)">
+              <InputField label="요일 (0=일요일)">
                 <input name="weekday" type="number" min={0} max={6} defaultValue={2} required />
               </InputField>
-              <InputField label="Start">
+              <InputField label="시작">
                 <input name="startTime" type="time" defaultValue="10:00" required />
               </InputField>
-              <InputField label="End">
+              <InputField label="종료">
                 <input name="endTime" type="time" defaultValue="11:30" required />
               </InputField>
-              <InputField label="Area">
+              <InputField label="활동 지역">
                 <input name="area" defaultValue="Gangnam" required />
               </InputField>
               <Button type="submit" disabled={loading || !userId}>
-                Add Slot
+                시간대 추가
               </Button>
             </form>
             <div className="chips">
               {(me?.availability ?? []).map((slot) => (
                 <Badge key={slot.id}>D{slot.weekday} · {slot.startTime}-{slot.endTime} · {slot.area}</Badge>
               ))}
-              {(me?.availability ?? []).length === 0 ? <p className="empty">No availability yet. Add at least one slot.</p> : null}
+              {(me?.availability ?? []).length === 0 ? <p className="empty">등록된 가능 시간이 없습니다. 최소 1개를 추가하세요.</p> : null}
             </div>
           </Card>
         </div>
@@ -356,13 +356,13 @@ function App() {
 
       {activeStep === 'matching' ? (
         <div className="stack">
-          <Card title="Smart Suggestions" subtitle="Candidates ranked by interests, region, and time overlap.">
+          <Card title="맞춤 추천" subtitle="관심사/지역/시간 겹침 점수로 추천됩니다.">
             <div className="row">
               <Button onClick={loadSuggestions} disabled={loading || !userId}>
-                Load Suggestions
+                추천 불러오기
               </Button>
               <Button variant="ghost" onClick={refreshProposals} disabled={loading || !userId}>
-                Refresh My Proposals
+                내 제안 새로고침
               </Button>
             </div>
             <div className="list">
@@ -370,21 +370,21 @@ function App() {
                 <article className="item" key={s.user.id}>
                   <div>
                     <strong>{s.user.nickname}</strong>
-                    <p>{s.user.bio || 'No bio yet.'}</p>
-                    <small>Score {s.score} · overlap interests {s.breakdown.overlapInterests}</small>
+                    <p>{s.user.bio || '소개가 아직 없습니다.'}</p>
+                    <small>점수 {s.score} · 공통 관심사 {s.breakdown.overlapInterests}</small>
                   </div>
                   <Button onClick={() => createProposal(s.user.id)} disabled={loading}>
-                    Send Proposal
+                    제안 보내기
                   </Button>
                 </article>
               ))}
-              {suggestions.length === 0 ? <p className="empty">No suggestions loaded yet.</p> : null}
+              {suggestions.length === 0 ? <p className="empty">아직 추천을 불러오지 않았습니다.</p> : null}
             </div>
           </Card>
 
-          <Card title="Proposal Inbox" subtitle="Accept or reject pending proposals. Accepting creates appointment.">
-            <InputField label="Manual proposal ID">
-              <input value={proposalId} onChange={(e) => setProposalId(e.target.value)} placeholder="proposal id" />
+          <Card title="제안함" subtitle="대기 제안을 수락/거절합니다. 수락하면 약속이 생성됩니다.">
+            <InputField label="수동 제안 ID">
+              <input value={proposalId} onChange={(e) => setProposalId(e.target.value)} placeholder="제안 ID" />
             </InputField>
             <div className="list">
               {proposals.map((p) => (
@@ -399,16 +399,16 @@ function App() {
                   {p.status === 'PENDING' ? (
                     <div className="row">
                       <Button onClick={() => acceptProposal(p.id)} disabled={loading}>
-                        Accept
+                        수락
                       </Button>
                       <Button variant="danger" onClick={() => rejectProposal(p.id)} disabled={loading}>
-                        Reject
+                        거절
                       </Button>
                     </div>
                   ) : null}
                 </article>
               ))}
-              {proposals.length === 0 ? <p className="empty">No proposal history yet.</p> : null}
+              {proposals.length === 0 ? <p className="empty">아직 제안 내역이 없습니다.</p> : null}
             </div>
           </Card>
         </div>
@@ -416,33 +416,33 @@ function App() {
 
       {activeStep === 'appointment' ? (
         <div className="stack">
-          <Card title="Appointment Lifecycle" subtitle="Handle check-in, review, no-show and incident reports.">
+          <Card title="약속 진행" subtitle="체크인/리뷰/no-show/신고를 처리합니다.">
             <div className="grid grid-inline">
-              <InputField label="Appointment ID">
-                <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="appointment id" />
+              <InputField label="약속 ID">
+                <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="약속 ID" />
               </InputField>
-              <InputField label="Partner User ID">
-                <input value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} placeholder="other participant id" />
+              <InputField label="상대 사용자 ID">
+                <input value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} placeholder="상대 참가자 ID" />
               </InputField>
-              <InputField label="Check-in Code">
-                <input value={checkinCode} onChange={(e) => setCheckinCode(e.target.value)} placeholder="4-digit code" />
+              <InputField label="체크인 코드">
+                <input value={checkinCode} onChange={(e) => setCheckinCode(e.target.value)} placeholder="4자리 코드" />
               </InputField>
             </div>
             <div className="row wrap">
               <Button onClick={loadAppointment} disabled={loading || !appointmentId}>
-                Load Appointment
+                약속 불러오기
               </Button>
               <Button onClick={submitCheckin} disabled={loading || !appointmentId || !checkinCode}>
-                Check In
+                체크인
               </Button>
               <Button variant="secondary" onClick={submitReview} disabled={loading || !appointmentId || !targetUserId}>
-                Submit Review
+                리뷰 등록
               </Button>
               <Button variant="danger" onClick={submitNoShow} disabled={loading || !appointmentId || !targetUserId}>
-                Report No-show
+                노쇼 신고
               </Button>
               <Button variant="ghost" onClick={submitReport} disabled={loading || !appointmentId || !targetUserId}>
-                Incident Report
+                문제 신고
               </Button>
             </div>
             {appointment ? (
@@ -451,21 +451,21 @@ function App() {
                   <strong>{appointment.place}</strong> · {new Date(appointment.startsAt).toLocaleString()}
                 </p>
                 <p>
-                  Status: <Badge tone={appointment.status === 'COMPLETED' ? 'good' : appointment.status === 'NO_SHOW' ? 'bad' : 'warn'}>{appointment.status}</Badge>
+                  상태: <Badge tone={appointment.status === 'COMPLETED' ? 'good' : appointment.status === 'NO_SHOW' ? 'bad' : 'warn'}>{appointment.status}</Badge>
                 </p>
               </div>
             ) : (
-              <p className="empty">No appointment loaded.</p>
+              <p className="empty">불러온 약속이 없습니다.</p>
             )}
           </Card>
         </div>
       ) : null}
 
       {activeStep === 'admin' ? (
-        <Card title="Admin Moderation" subtitle="Moderate open user reports with secure API key.">
+        <Card title="관리자 모더레이션" subtitle="보안 키로 열린 사용자 신고를 처리합니다.">
           <div className="row">
             <Button onClick={loadOpenReports} disabled={loading || !adminKey}>
-              Load Open Reports
+              열린 신고 불러오기
             </Button>
           </div>
           <div className="list">
@@ -473,15 +473,15 @@ function App() {
               <article className="item" key={report.id}>
                 <div>
                   <strong>{report.reason}</strong>
-                  <p>Report #{report.id.slice(0, 8)} · target {report.targetUserId.slice(0, 8)}...</p>
+                  <p>신고 #{report.id.slice(0, 8)} · 대상 {report.targetUserId.slice(0, 8)}...</p>
                   <Badge tone="warn">{report.status}</Badge>
                 </div>
                 <Button variant="secondary" onClick={() => resolveReport(report.id)} disabled={loading}>
-                  Resolve (Warning)
+                  처리(경고)
                 </Button>
               </article>
             ))}
-            {reports.length === 0 ? <p className="empty">No open reports at the moment.</p> : null}
+            {reports.length === 0 ? <p className="empty">현재 열린 신고가 없습니다.</p> : null}
           </div>
         </Card>
       ) : null}
