@@ -18,7 +18,17 @@ npm run dev
 
 `ADMIN_API_KEY` 미설정 시 admin API는 `503 SERVER_MISCONFIGURED`를 반환합니다.
 
-## 2) 테스트
+## 2) Frontend (React + TypeScript + Vite)
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+기본 API 엔드포인트는 `VITE_API_BASE_URL`로 설정하며 기본값은 `http://localhost:4000`입니다.
+
+## 3) 테스트
 ```bash
 npm run build
 npm run test:flow
@@ -28,7 +38,7 @@ npm run test:integration
 - `test:flow`: happy-path E2E
 - `test:integration`: 정책 가드레일/권한/제재 일관성/매칭 품질/관리자 해결 플로우 검증
 
-## 3) 요구사항 ↔ 구현 매핑
+## 4) 요구사항 ↔ 구현 매핑
 - **Auth (OAuth + phone verify)**
   - `POST /auth/:provider`
   - `POST /auth/phone/verify`
@@ -56,7 +66,7 @@ npm run test:integration
   - `POST /admin/reports/:id/resolve`
   - `POST /admin/users/:id/sanction`
 
-## 4) 핵심 정책
+## 5) 핵심 정책
 - **제재 일관성**
   - 활성 제재(`SUSPEND_7D`, `SUSPEND_30D`, `BAN`) 또는 `blocked=true` 유저는 일반 액션 제한
   - no-show 누적: `7일 정지 → 30일 정지 → BAN`
@@ -66,13 +76,13 @@ npm run test:integration
 - **Admin API 보호**
   - 키 없거나 불일치 시 `401 UNAUTHORIZED`
 
-## 5) 문서
+## 6) 문서
 - API 상세 명세: `docs/api.md`
 - 배포 가이드: `docs/DEPLOYMENT.md`
 - 정책/보안 일관성 점검: `docs/policy-security-check.md`
 - 요구사항 최종 체크리스트: `docs/final-checklist.md`
 
-## 6) API 예시
+## 7) API 예시
 ### 로그인
 ```bash
 curl -X POST http://127.0.0.1:4000/auth/google \

@@ -12,6 +12,8 @@ function App() {
   const [output, setOutput] = useState('Ready')
   const [appointmentId, setAppointmentId] = useState('')
   const [proposalId, setProposalId] = useState('')
+  const [targetUserId, setTargetUserId] = useState('')
+  const [checkinCode, setCheckinCode] = useState('1234')
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([])
   const [reports, setReports] = useState<Report[]>([])
 
@@ -44,6 +46,8 @@ function App() {
           <input placeholder="Admin API Key" value={adminKey} onChange={(e) => setAdminKey(e.target.value)} />
           <input placeholder="Proposal ID" value={proposalId} onChange={(e) => setProposalId(e.target.value)} />
           <input placeholder="Appointment ID" value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} />
+          <input placeholder="Target User ID" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
+          <input placeholder="Check-in code" value={checkinCode} onChange={(e) => setCheckinCode(e.target.value)} />
         </div>
       </header>
 
@@ -130,23 +134,25 @@ function App() {
         <h2>5) Appointments / Check-in / Review / Report</h2>
         <div className="actions">
           <button onClick={() => run('Appointment detail', () => api.appointment(appointmentId))}>Load Appointment</button>
-          <button onClick={() => run('Check-in', () => api.checkin(appointmentId, { userId, code: '1234' }))}>Check-in (sample code)</button>
+          <button onClick={() => run('Check-in', () => api.checkin(appointmentId, { userId, code: checkinCode }))}>Check-in</button>
           <button
             onClick={() =>
-              run('No-show', () => api.noShow(appointmentId, { reporterId: userId, targetUserId: '', reason: 'did not arrive' }))
+              run('No-show', () => api.noShow(appointmentId, { reporterId: userId, targetUserId, reason: 'did not arrive' }))
             }
           >
             Report No-show
           </button>
           <button
             onClick={() =>
-              run('Review', () => api.review(appointmentId, { reviewerId: userId, revieweeId: '', comment: 'Great conversation', scoreDelta: 2 }))
+              run('Review', () => api.review(appointmentId, { reviewerId: userId, revieweeId: targetUserId, comment: 'Great conversation', scoreDelta: 2 }))
             }
           >
             Submit Review
           </button>
           <button
-            onClick={() => run('Report', () => api.report(appointmentId, { reporterId: userId, targetUserId: '', reason: 'inappropriate behavior' }))}
+            onClick={() =>
+              run('Report', () => api.report(appointmentId, { reporterId: userId, targetUserId, reason: 'inappropriate behavior' }))
+            }
           >
             Submit Incident Report
           </button>
