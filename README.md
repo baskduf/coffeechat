@@ -39,8 +39,9 @@ npm run test:flow
 - `PUT /me/profile`
 - `PUT /me/interests`
 - `POST /me/availability`
+- `GET /matches/suggestions/:userId`
 - `POST /matches/proposals`
-- `POST /matches/:id/accept`
+- `POST /matches/:id/accept` (accepterId 필요)
 - `POST /appointments/:id/checkin-code`
 - `POST /appointments/:id/review`
 - `POST /appointments/:id/report`

@@ -9,6 +9,22 @@ app.use(express.json())
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
+async function isUserRestricted(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user || user.blocked) return true
+
+  const now = new Date()
+  const activeSanction = await prisma.sanction.findFirst({
+    where: {
+      userId,
+      OR: [{ endAt: null }, { endAt: { gt: now } }],
+      level: { in: ['SUSPEND_7D', 'SUSPEND_30D', 'BAN'] },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  return Boolean(activeSanction)
+}
+
 // Auth (mock OAuth + phone verify)
 app.post('/auth/:provider', async (req, res) => {
   const provider = req.params.provider
@@ -99,11 +115,38 @@ app.get('/matches/proposals/:userId', async (req, res) => {
   res.json(proposals)
 })
 
+app.get('/matches/suggestions/:userId', async (req, res) => {
+  const userId = req.params.userId
+  const me = await prisma.user.findUnique({ where: { id: userId }, include: { interests: true } })
+  if (!me) return res.status(404).json({ error: 'user not found' })
+
+  const others = await prisma.user.findMany({
+    where: { id: { not: userId }, blocked: false },
+    include: { interests: true, availability: true },
+    take: 30,
+  })
+
+  const myInterests = new Set(me.interests.map((i) => i.name.toLowerCase()))
+  const ranked = others
+    .map((u) => {
+      const overlap = u.interests.filter((i) => myInterests.has(i.name.toLowerCase())).length
+      return { user: u, score: overlap * 10 + u.trustScore }
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+
+  res.json(ranked)
+})
+
 app.post('/matches/proposals', async (req, res) => {
   const body = z
     .object({ proposerId: z.string(), partnerId: z.string(), message: z.string().optional() })
     .safeParse(req.body)
   if (!body.success) return res.status(400).json(body.error.flatten())
+
+  if (await isUserRestricted(body.data.proposerId)) {
+    return res.status(403).json({ error: 'proposer is restricted by sanction' })
+  }
 
   const proposal = await prisma.matchProposal.create({ data: body.data })
   res.json(proposal)
@@ -111,8 +154,16 @@ app.post('/matches/proposals', async (req, res) => {
 
 app.post('/matches/:id/accept', async (req, res) => {
   const id = req.params.id
-  const body = z.object({ place: z.string(), startsAt: z.string() }).safeParse(req.body)
+  const body = z.object({ place: z.string(), startsAt: z.string(), accepterId: z.string() }).safeParse(req.body)
   if (!body.success) return res.status(400).json(body.error.flatten())
+
+  if (await isUserRestricted(body.data.accepterId)) {
+    return res.status(403).json({ error: 'accepter is restricted by sanction' })
+  }
+
+  const proposalBefore = await prisma.matchProposal.findUnique({ where: { id } })
+  if (!proposalBefore) return res.status(404).json({ error: 'proposal not found' })
+  if (proposalBefore.partnerId !== body.data.accepterId) return res.status(403).json({ error: 'only partner can accept' })
 
   const proposal = await prisma.matchProposal.update({ where: { id }, data: { status: 'ACCEPTED' } })
   const appointment = await prisma.appointment.create({

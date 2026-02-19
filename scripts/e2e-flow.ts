@@ -18,6 +18,7 @@ async function main() {
   const accepted = await post(`/matches/${proposal.id}/accept`, {
     place: 'Gangnam Station',
     startsAt: new Date(Date.now() + 3600_000).toISOString(),
+    accepterId: b.user.id,
   })
 
   await post(`/appointments/${accepted.appointment.id}/checkin-code`, {
